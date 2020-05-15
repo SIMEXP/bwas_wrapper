@@ -1,0 +1,9 @@
+numpy>=1.18.4
+scipy>=1.4.1
+matplotlib>=3.2.1
+nilearn>=0.6.2
+nibabel>=3.1.0
+joblib>=0.14.1
+PyPDF2>=1.26.0
+jupyterlab>=2.1.2
+pandas
