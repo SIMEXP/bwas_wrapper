@@ -1,4 +1,4 @@
-from bwas_wrapper import BWAS_cup
+from bwas_wrapper.BWAS import BWAS_cpu
 
 def wrapper(df):
     """
