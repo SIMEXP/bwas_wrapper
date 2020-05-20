@@ -2,7 +2,18 @@ import os
 import tempfile
 from bwas_wrapper.BWAS import BWAS_cpu
 
-def wrapper(model, files, output_folder, subject_id, interest):
+
+def wrapper(
+    model,
+    files,
+    output_folder,
+    subject_id,
+    interest,
+    mask=None,
+    ncore=1,
+    memory_limit_per_core=16,
+    CDT=5,
+):
     """
     A wrapper for the BWAS library.
 
@@ -20,6 +31,17 @@ def wrapper(model, files, output_folder, subject_id, interest):
     This would be for example a dummy variable with 0s and 1s for a group
     comparison. The other columns will be used as confonds in the analysis.
     :type interest: string
+    :parameter mask: Mask to be used on data. If an instance of masker is passed,
+        then its mask will be used. If no mask is given,
+        it will be computed automatically by a MultiNiftiMasker with default
+        parameters.
+    :type mask: Niimg-like object or MultiNiftiMasker instance, optional
+    :parameter ncore: Number of CPU to use for this analysis.
+    :type ncore: int, optional
+    :parameter memory_limit_per_core: The maximum memory limits per CPU (GB)
+    :type memory_limit_per_core: int, optional
+    :parameter CDT: Cluster defining threshold (z-value), better >= 4.5 for whole brain analysis.
+    :type CDT: float, optional
 
     Note
     ----
@@ -28,10 +50,19 @@ def wrapper(model, files, output_folder, subject_id, interest):
     path_analysis = tempfile.TemporaryDirectory()
     print("Creating sym links in the following path: {0}".format(path_analysis.name))
     for idx, subject in enumerate(model[subject_id]):
-        file = f'{idx: 12}.nii.gz'.replace(' ','0')
+        file = f"{idx: 12}.nii.gz".replace(" ", "0")
         os.symlink(src=files[subject], dst=os.path.join(path_analysis.name, file))
 
-
-    BWAS_run_full_analysis(result_dir,image_dir,mask_file,toolbox_path,targets_file,cov_file,CDT,memory_limit_per_core=16,ncore=1)
+    BWAS_run_full_analysis(
+        result_dir,
+        image_dir,
+        mask_file,
+        toolbox_path,
+        targets_file,
+        cov_file,
+        CDT=CDT,
+        memory_limit_per_core=memory_limit_per_core,
+        ncore=ncore,
+    )
 
     path_analysis.cleanup()
