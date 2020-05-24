@@ -1,7 +1,7 @@
 import os
 from shutil import rmtree
 import tempfile
-from bwas_wrapper.BWAS.BWAS_cpu import BWAS_run_full_analysis
+from bwas_wrapper.BWAS import BWAS_cpu
 from nilearn.input_data import NiftiMasker
 
 def wrapper(
@@ -82,15 +82,26 @@ def wrapper(
     mask = masker.mask_img_
     mask.to_filename(mask_file)
 
+    # dump the target in a numpy file
+    targets_file = os.path.join(path_analysis, 'targets.npy')
+    np.save(targets_file, model[interest].to_numpy())
+
+    # dump the covariates in a numpy file
+    cov_file = os.path.join(path_analysis, 'covariates.npy')
+    labels = models.columns
+    cov = labels[[item not in [interest, subject_id] for item in labels]]
+    np.save(cov_file, model[cov].to_numpy())
+
+    # dump the
     # Run BWAS
     print("Running BWAS")
-    BWAS_run_full_analysis(
-        result_dir,
-        image_dir,
-        mask_file,
-        toolbox_path,
-        targets_file,
-        cov_file,
+    BWAS_cpu.BWAS_run_full_analysis(
+        result_dir=result_dir,
+        image_dir=path_analysis,
+        mask_file=mask_file,
+        toolbox_path=os.path.dirname(BWAS_cpu.__file__),
+        targets_file=targets_file,
+        cov_file=cov_file,
         CDT=CDT,
         memory_limit_per_core=memory_limit_per_core,
         ncore=ncore,
