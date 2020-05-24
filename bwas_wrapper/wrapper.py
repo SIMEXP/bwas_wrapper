@@ -1,15 +1,16 @@
 import os
+from shutil import rmtree
 import tempfile
-from bwas_wrapper.BWAS import BWAS_cpu
-
+from bwas_wrapper.BWAS.BWAS_cpu import BWAS_run_full_analysis
+from nilearn.input_data import NiftiMasker
 
 def wrapper(
     model,
     files,
-    output_folder,
+    result_dir,
     subject_id,
     interest,
-    mask=None,
+    delete_tmp=False,
     ncore=1,
     memory_limit_per_core=16,
     CDT=5,
@@ -23,7 +24,7 @@ def wrapper(
     :type model: pandas data frame
     :parameter files: files[subject] is the file associated with subject
     :type files: dictionary
-    :parameter output_folder: where to save the results of the analysis.
+    :parameter result_dir: where to save the results of the analysis.
     :type output_folder: string.
     :parameter subject_id: the name of the column in model containing subject IDs
     :type subject_id: string
@@ -31,28 +32,58 @@ def wrapper(
     This would be for example a dummy variable with 0s and 1s for a group
     comparison. The other columns will be used as confonds in the analysis.
     :type interest: string
-    :parameter mask: Mask to be used on data. If an instance of masker is passed,
-        then its mask will be used. If no mask is given,
-        it will be computed automatically by a MultiNiftiMasker with default
-        parameters.
-    :type mask: Niimg-like object or MultiNiftiMasker instance, optional
     :parameter ncore: Number of CPU to use for this analysis.
     :type ncore: int, optional
     :parameter memory_limit_per_core: The maximum memory limits per CPU (GB)
     :type memory_limit_per_core: int, optional
     :parameter CDT: Cluster defining threshold (z-value), better >= 4.5 for whole brain analysis.
     :type CDT: float, optional
+    :parameter delete_tmp: turn on/off the deletion of the temporary folder for the analysis
+    :type delete_tmp: boolean, optional
 
+    :return path_analysis: the temporary folder used to run the analysis. This
+        folder may be automatically deleted on exit (see ``delete_tmp``).
+    :type path_analysis: string.
     Note
     ----
     The files need to point to *fully preprocessed* 4D nifti files. No detrending or smoothing can be applied.
+
+    The analysis mask is automatically generated using nilearn.
+    User-specified mask is not currently supported.
     """
-    path_analysis = tempfile.TemporaryDirectory()
-    print("Creating sym links in the following path: {0}".format(path_analysis.name))
+    # Create temporary file name structure with sym links
+    # BWAS uses the alphabetical order in files to make a match with the model variables
+    # This is a risky strategy: any discrepancy between the model row order and
+    # files will result in a catastrophic (silent) failure.
+    # To address this issue, bwas_wrapper uses a python dictionary to list files
+    # and creates a collection of symlinks that matches the model order just for
+    # the analysis
+    path_analysis = tempfile.mkdtemp()
+    print("Creating sym links in the following temporary folder: {0}".format(path_analysis))
+    imgs = []
     for idx, subject in enumerate(model[subject_id]):
         file = f"{idx: 12}.nii.gz".replace(" ", "0")
-        os.symlink(src=files[subject], dst=os.path.join(path_analysis.name, file))
+        imgs.append(os.path.join(path_analysis, file))
+        print("linking {0} with {1}".format(files[subject], imgs[-1]))
+        os.symlink(src=files[subject], dst=imgs[-1])
 
+    # Create the output folder if it does not exist
+    if not os.path.exists(result_dir):
+        os.makedirs(result_dir)
+        print(f"Result directory {result_dir} created.")
+    else:
+        print(f"Storing results in {result_dir} (already exists).")
+
+    # Create a mask, if not specified
+    mask_file = os.path.join(path_analysis, 'mask.nii.gz')
+    print(f"Generating a brain mask for the analysis in {mask_file}")
+    masker = NiftiMasker()
+    masker.fit(imgs)
+    mask = masker.mask_img_
+    mask.to_filename(mask_file)
+
+    # Run BWAS
+    print("Running BWAS")
     BWAS_run_full_analysis(
         result_dir,
         image_dir,
@@ -65,4 +96,7 @@ def wrapper(
         ncore=ncore,
     )
 
-    path_analysis.cleanup()
+    if delete_tmp:
+        rmtree(path_analysis)
+
+    return path_analysis
