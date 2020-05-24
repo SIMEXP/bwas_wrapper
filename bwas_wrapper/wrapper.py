@@ -94,7 +94,7 @@ def wrapper(
 
     # dump the covariates in a numpy file
     cov_file = os.path.join(path_model, 'covariates.npy')
-    labels = models.columns
+    labels = model.columns
     cov = labels[[item not in [interest, subject_id] for item in labels]]
     np.save(cov_file, model[cov].to_numpy())
 
