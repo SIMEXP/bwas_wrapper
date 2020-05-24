@@ -1,6 +1,7 @@
 import os
 from shutil import rmtree
 import tempfile
+import numpy as np
 from bwas_wrapper.BWAS import BWAS_cpu
 from nilearn.input_data import NiftiMasker
 
@@ -12,7 +13,7 @@ def wrapper(
     interest,
     delete_tmp=False,
     ncore=1,
-    memory_limit_per_core=16,
+    memory_limit_per_core=4,
     CDT=5,
 ):
     """
@@ -59,6 +60,8 @@ def wrapper(
     # and creates a collection of symlinks that matches the model order just for
     # the analysis
     path_analysis = tempfile.mkdtemp()
+    path_model = tempfile.mkdtemp()
+
     print("Creating sym links in the following temporary folder: {0}".format(path_analysis))
     imgs = []
     for idx, subject in enumerate(model[subject_id]):
@@ -74,8 +77,11 @@ def wrapper(
     else:
         print(f"Storing results in {result_dir} (already exists).")
 
+    # Create the files related to the model
+    print("Creating files related to the model in the following temporary folder: {0}".format(path_model))
+
     # Create a mask, if not specified
-    mask_file = os.path.join(path_analysis, 'mask.nii.gz')
+    mask_file = os.path.join(path_model, 'mask.nii.gz')
     print(f"Generating a brain mask for the analysis in {mask_file}")
     masker = NiftiMasker()
     masker.fit(imgs)
@@ -83,11 +89,11 @@ def wrapper(
     mask.to_filename(mask_file)
 
     # dump the target in a numpy file
-    targets_file = os.path.join(path_analysis, 'targets.npy')
+    targets_file = os.path.join(path_model, 'targets.npy')
     np.save(targets_file, model[interest].to_numpy())
 
     # dump the covariates in a numpy file
-    cov_file = os.path.join(path_analysis, 'covariates.npy')
+    cov_file = os.path.join(path_model, 'covariates.npy')
     labels = models.columns
     cov = labels[[item not in [interest, subject_id] for item in labels]]
     np.save(cov_file, model[cov].to_numpy())
@@ -109,5 +115,6 @@ def wrapper(
 
     if delete_tmp:
         rmtree(path_analysis)
+        rmtree(path_model)
 
     return path_analysis
