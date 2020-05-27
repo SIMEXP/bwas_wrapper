@@ -1,0 +1,3 @@
+[submodule "bwas_wrapper/BWAS"]
+	path = bwas_wrapper/BWAS
+	url = https://github.com/simexp/BWAS
